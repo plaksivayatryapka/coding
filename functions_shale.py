@@ -122,7 +122,7 @@ def draw_shale(*args): # рисование графика
     matplotlib.use('agg') # при необходимости можно убрать для sagemath взамен %inline
     import matplotlib.pyplot as plt
     
-    if not args :
+    if not args:
         rigs_scenarios, ignore_productivity, extrapolation_range = input_data() # ввод данных с клавиатуры
     else:
         rigs_scenarios = []

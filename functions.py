@@ -48,9 +48,18 @@ def generate_date_range(date_start, periods_count, period_size):
     return dates
 
 
-def draw(dates, data, title, y_axis_name, filename):
+def draw(dates, x_size, y_size, title, y_axis_name, filename, *args):
+    import os
+    import matplotlib
+    matplotlib.use('agg')
     import matplotlib.pyplot as plt
-    plt.plot(dates, data)
-    plt.set_title(title)
+    plt.figure(figsize=(x_size, y_size))
+    for data in args:
+        plt.plot(dates, data)
+
+    plt.title(title)
     plt.ylabel(y_axis_name)
+    plt.xticks(rotation=25)
+    plt.grid()
     plt.savefig(filename)
+    os.system('gwenview %s' % filename)

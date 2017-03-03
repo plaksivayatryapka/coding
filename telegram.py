@@ -95,6 +95,5 @@ TelegramBot.message_loop({'chat': on_chat_message,
 
 print ('Listening ...')
 
-
 while 1:  # Keep the program running.
     time.sleep(10)
