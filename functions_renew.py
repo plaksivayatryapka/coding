@@ -99,18 +99,22 @@ def values_func(i, wind, solar, load, charged, discharged, gas, overhead, overhe
         values.append(sprint('storage utilization', sum(charged) / capacity_storage, ' шт.'))
     values.append(sprint('LCOE', lcoe, ' $/МВт*ч'))
     values.append(sprint('LCOE of storage electricity', lcoe_storage, ' $/МВт*ч'))
-    values.append(sprint('max_overhead', sum(100 * overhead)/sum(load), '%'))
+    values.append(sprint('max_overhead', sum(overhead) / (sum(wind) + sum(solar) + sum(gas)) * 100, '%'))
     values.append(' ')
+    values.append(sprint('wind installed', wind_capacity, ' ГВт'))
+    values.append(sprint('solar installed', solar_capacity, ' ГВт'))
     values.append(sprint('max_gas', max(gas), ' ГВт'))
+    values.append(sprint('total installed', solar_capacity + wind_capacity + max(gas), ' ГВт'))
+    values.append(sprint('real installed', 488, ' ГВт'))
+    values.append(' ')
     values.append(sprint('max_wind', max(wind), ' ГВт'))
-
     values.append(sprint('max_solar', max(solar), ' ГВт'))
     values.append(sprint('max_load', max(load), ' ГВт'))
     values.append(' ')
-    values.append(sprint('wind_ratio', sum(100 * wind)/sum(load), '%'))
-    values.append(sprint('solar_ratio', sum(100 * solar)/sum(load), '%'))
-    values.append(sprint('gas_ratio', 100 * sum(gas)/sum(load), '%'))
-    values.append(sprint('storage_ratio', 100 * sum(charged) / sum(load), '%'))
+    values.append(sprint('wind_ratio', sum(wind)/ (sum(wind) + sum(solar) + sum(gas)) * 100, '%'))
+    values.append(sprint('solar_ratio', sum(solar)/ (sum(wind) + sum(solar) + sum(gas)) * 100, '%'))
+    values.append(sprint('gas_ratio', sum(gas)/ (sum(wind) + sum(solar) + sum(gas)) * 100, '%'))
+    values.append(sprint('storage_ratio', sum(charged) / (sum(wind) + sum(solar) + sum(gas)) * 100, '%'))
     values.append(' ')
 
     if wind_capacity == 0:
@@ -134,7 +138,7 @@ def values_func(i, wind, solar, load, charged, discharged, gas, overhead, overhe
 
 def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_storage, lcoe_wind, lcoe_solar, lcoe_gas, price_kwh_storage,
                discount_rate_storage, years_storage, start_date, end_date):
-    
+    import os
     import matplotlib  # импорт библиотеки рисования графика
     matplotlib.rc('font', family='DejaVu Sans')  # шрифт с поддержкой русского языка
     matplotlib.use('agg')  # при необходимости можно убрать для sagemath взамен %inline
@@ -159,7 +163,7 @@ def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_stor
     # создание заголовков для таблицы
     
     titles = ['Ёмкость аккумуляторов', 'Мультипликатор ветра', 'Мультипликатор солнца', ' ', 'Циклы зарядки/разрядки', 'LCOE', 'LCOS',
-              'Потери (перегрузы)', ' ', 'Газ, макс.', 'Ветер, макс.', 'Солнце, макс.', 'Потребление, макс.', ' ', 'Доля ветра',
+              'Потери (перегрузы)', ' ', 'Ветер, установлено', 'Солнце, установлено', 'Газ, макс.', 'Суммарно установлено', 'Реально установлено, 2015г', ' ', 'Ветер, макс.', 'Солнце, макс.', 'Потребление, макс.', ' ', 'Доля ветра',
               'Доля солнца', 'Доля газа', 'Доля аккумуляции', ' ', 'КИУМ ветра', 'КИУМ солнца', 'КИУМ газа']
     titles = '\n'.join(titles)
     titles = u'%s' % titles
@@ -193,7 +197,7 @@ def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_stor
     
     plt.xticks(rotation=25)
     chart1.grid()  # сетка для графика
-    chart1.plot(dates, wind_multiplied, color='b', linewidth=1, label=u'Ветер**')
+    chart1.plot(dates, wind_multiplied, color='b', linewidth=1, label=u'Ветер')
     chart1.plot(dates, solar_multiplied, color='#ffcc00', linewidth=1, label=u'Солнце')
     chart1.plot(dates, gas, color='c', label=u'Газ')
     chart1.plot(dates, charged, color='g', linewidth=1, label=u'Зарядка')
@@ -215,7 +219,7 @@ def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_stor
     
     # формирование и вставка остальных столбцов таблицы (при наличии)
     plt.figtext(0.1, 0.04, titles)
-    plt.figtext(0.1, 0.29, note)
+    #plt.figtext(0.1, 0.29, note)
     plt.figtext(0.35, 0.04, values1)
     text_x_coordinate = 0.5
     if scenarios_count > 1:
@@ -224,4 +228,6 @@ def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_stor
                                 lcoe_wind, lcoe_solar, lcoe_gas, price_kwh_storage, discount_rate_storage, years_storage)
             plt.figtext(text_x_coordinate, 0.04, values2)
             text_x_coordinate += 0.15
+
     plt.savefig('chart_renew.png')
+    os.system('gwenview chart_renew.png')
