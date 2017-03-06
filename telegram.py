@@ -4,7 +4,7 @@
 from functions import is_float, is_int
 from functions_shale import draw_shale
 from functions_renew import draw_renew
-from renew_model import lcoe_wind, lcoe_solar, lcoe_gas, price_kwh_storage, discount_rate_storage, years_storage
+from renew_model import wind_price, solar_price, gas_price, price_kwh_storage, discount_rate_storage, years_storage
 import time
 import telepot
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
@@ -61,7 +61,7 @@ def on_chat_message(msg):
             solar_multiplier = [input_data[2]]
             capacity_storage = [input_data[3]]
             input_data[0] = int(input_data[0])  # месяцы в int
-            draw_renew(1, wind_multiplier, solar_multiplier, capacity_storage, lcoe_wind, lcoe_solar, lcoe_gas,
+            draw_renew(1, wind_multiplier, solar_multiplier, capacity_storage, wind_price, solar_price, gas_price,
                        price_kwh_storage, discount_rate_storage, years_storage, start_date, end_date)  # запуск модели с входными параметрами
             time.sleep(1)
             TelegramBot.sendPhoto(chat_id, open('chart_renew.png', 'rb'))  # отправка графика в чат

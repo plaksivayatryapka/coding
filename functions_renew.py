@@ -13,8 +13,7 @@ def sprint(text, input_value, *args):
     return output
 
 
-def calculate(i, wind, solar, load, wind_multiplier, solar_multiplier, capacity_storage, lcoe_wind,
-              lcoe_solar, lcoe_gas, price_kwh_storage, discount_rate_storage, years_storage):
+def calculate(i, wind, solar, load, wind_multiplier, solar_multiplier, capacity_storage, wind_price, solar_price, gas_price, price_kwh_storage, discount_rate_storage, years_storage):
     rng = len(wind)
     
     # объ€вление массивов анализируемых данных
@@ -62,31 +61,98 @@ def calculate(i, wind, solar, load, wind_multiplier, solar_multiplier, capacity_
                 inbattery_list[hour] = inbattery
                 overhead_count += 1
 
-    values = values_func(i, wind, solar, load, charged, discharged, gas, overhead, overhead_count, capacity_storage[i], lcoe_wind[i],
-                         lcoe_solar[i], lcoe_gas[i], price_kwh_storage[i], discount_rate_storage[i], years_storage[i], wind_multiplier[i], solar_multiplier[i])
+    values = values_func(i, wind, solar, load, charged, discharged, gas, overhead, overhead_count, capacity_storage[i], wind_price, solar_price, gas_price, price_kwh_storage[i], discount_rate_storage[i], years_storage[i], wind_multiplier[i], solar_multiplier[i])
     if i == 0:
         return wind, solar, gas, charged, discharged, inbattery_list, capacity_storage, values
     else:
         return values
 
 
-def values_func(i, wind, solar, load, charged, discharged, gas, overhead, overhead_count, capacity_storage, lcoe_wind, lcoe_solar,
-                lcoe_gas, price_kwh_storage, discount_rate_storage, years_storage, wind_multiplier, solar_multiplier):
+def calculate_cycle(wind, solar, load, wind_multiplier, solar_multiplier, capacity_storage, wind_price, solar_price, gas_price, price_kwh_storage,
+                    discount_rate_storage, years_storage):
+    wind_capacity = 102.5 * wind_multiplier
+    solar_capacity = 55 * solar_multiplier
+
+    rng = len(wind)
+
+    wind = list(wind)
+    solar = list(solar)
+    load = list(load)
+    charged = [0] * rng
+    discharged = [0] * rng
+    gas = [0] * rng
+    overhead = [0] * rng
+    inbattery_list = [0] * rng
+
+    inbattery = 0
+    overhead_count = 0
+
+    for hour in range(rng):
+        wind[hour] = (wind[hour]) * wind_multiplier
+        solar[hour] = (solar[hour]) * solar_multiplier
+
+        if load[hour] > wind[hour] + solar[hour]:
+            if load[hour] - wind[hour] - solar[hour] < inbattery:
+                discharged[hour] = load[hour] - (wind[hour] + solar[hour])
+                inbattery -= discharged[hour]
+                inbattery_list[hour] = inbattery
+
+            else:
+                discharged[hour] = inbattery
+                inbattery = 0
+                gas[hour] = load[hour] - (wind[hour] + solar[hour]) - discharged[hour]
+                inbattery_list[hour] = inbattery
+
+        else:
+            if wind[hour] + solar[hour] - load[hour] < capacity_storage - inbattery:
+                charged[hour] = wind[hour] + solar[hour] - load[hour]
+                inbattery = inbattery + wind[hour] + solar[hour] - load[hour]
+                inbattery_list[hour] = inbattery
+
+            else:
+                charged[hour] = capacity_storage - inbattery
+                inbattery = capacity_storage
+                overhead[hour] = wind[hour] + solar[hour] - load[hour] - charged[hour]
+                inbattery_list[hour] = inbattery
+                overhead_count += 1
+
+    if sum(charged) == 0:
+        lcoe_storage = 0
+    else:
+        lcoe_storage = price_kwh_storage * 1000 * pow(discount_rate_storage, years_storage) / (sum(charged) / capacity_storage * years_storage)
+
+    overhead_wind = sum(overhead) * sum(wind) / (sum(solar) + sum(wind))
+    overhead_solar = sum(overhead) * sum(solar) / (sum(solar) + sum(wind))
+    gas_ratio = sum(gas) / (sum(load))
+    #lcoe = (wind_capacity * wind_price + solar_capacity * solar_price + price_kwh_storage * capacity_storage * pow(discount_rate_storage, years_storage) / 1000 + max(gas) * gas_price + max(gas) * gas_ratio * 7.5) / \
+    #       ((sum(wind) - overhead_wind + sum(solar) - overhead_solar + (sum(gas))) * years_storage) * 1000000
+    lcoe = (wind_capacity * wind_price + solar_capacity * solar_price + price_kwh_storage * capacity_storage * pow(discount_rate_storage, years_storage) / 1000 + max(gas) * gas_price + max(gas) * gas_ratio * 7.5) / (sum(load) * years_storage) * 1000000
+    #lcoe_wind_corr = lcoe_wind + lcoe_wind * (overhead_wind / sum(load))
+    #lcoe_solar_corr = lcoe_solar + lcoe_solar * (overhead_solar / sum(load))
+    #lcoe = (sum(wind) * lcoe_wind_corr + sum(solar) * lcoe_solar_corr + sum(gas) * lcoe_gas + sum(discharged) * lcoe_storage) / sum(load)
+    overhead_ratio = sum(overhead) / (sum(wind) + sum(solar) + sum(gas))
+
+    return lcoe, overhead_ratio, gas_ratio
+
+
+def values_func(i, wind, solar, load, charged, discharged, gas, overhead, overhead_count, capacity_storage, wind_price, solar_price, gas_price, price_kwh_storage, discount_rate_storage, years_storage, wind_multiplier, solar_multiplier):
     
-    wind_capacity = 96 * wind_multiplier  # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    wind_capacity = 102.5 * wind_multiplier  # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     solar_capacity = 55 * solar_multiplier
     values = []
-
+    gas_ratio = sum(gas) / (sum(load))
     # расчёт LCOE
     if sum(charged) == 0 or capacity_storage == 0:
         lcoe_storage = 0
     else: 
         lcoe_storage = price_kwh_storage * 1000 * pow(discount_rate_storage, years_storage) / (sum(charged) / capacity_storage * years_storage)
-    overhead_wind = sum(overhead) * sum(wind) / (sum(solar) + sum(wind))
-    overhead_solar = sum(overhead) * sum(solar) / (sum(solar) + sum(wind))
-    lcoe_wind_corr = lcoe_wind + lcoe_wind * (overhead_wind/sum(load))
-    lcoe_solar_corr = lcoe_solar + lcoe_solar * (overhead_solar/sum(load))
-    lcoe = (sum(wind) * lcoe_wind_corr + sum(solar) * lcoe_solar_corr + sum(gas) * lcoe_gas + sum(discharged) * lcoe_storage) / sum(load)
+    #overhead_wind = sum(overhead) * sum(wind) / (sum(solar) + sum(wind))
+    #overhead_solar = sum(overhead) * sum(solar) / (sum(solar) + sum(wind))
+    lcoe = (wind_capacity * wind_price + solar_capacity * solar_price + price_kwh_storage * capacity_storage * pow(discount_rate_storage, years_storage) / 1000 + max(gas) * gas_price + max(gas) * gas_ratio * 7.5) / (sum(load) * years_storage) * 1000000
+
+    #lcoe_wind_corr = lcoe_wind + lcoe_wind * (overhead_wind/sum(load))
+    #lcoe_solar_corr = lcoe_solar + lcoe_solar * (overhead_solar/sum(load))
+    #lcoe = (sum(wind) * lcoe_wind_corr + sum(solar) * lcoe_solar_corr + sum(gas) * lcoe_gas + sum(discharged) * lcoe_storage) / sum(load)
 
     values.append(u'Сценарий %s' % str(i + 1))
     values.append(sprint('capacity storage', capacity_storage, ' ГВт*ч'))
@@ -99,7 +165,7 @@ def values_func(i, wind, solar, load, charged, discharged, gas, overhead, overhe
         values.append(sprint('storage utilization', sum(charged) / capacity_storage, ' шт.'))
     values.append(sprint('LCOE', lcoe, ' $/МВт*ч'))
     values.append(sprint('LCOE of storage electricity', lcoe_storage, ' $/МВт*ч'))
-    values.append(sprint('max_overhead', sum(overhead) / (sum(wind) + sum(solar) + sum(gas)) * 100, '%'))
+    values.append(sprint('overhead_ratio', sum(overhead) / (sum(wind) + sum(solar) + sum(gas)) * 100, '%'))
     values.append(' ')
     values.append(sprint('wind installed', wind_capacity, ' ГВт'))
     values.append(sprint('solar installed', solar_capacity, ' ГВт'))
@@ -136,7 +202,7 @@ def values_func(i, wind, solar, load, charged, discharged, gas, overhead, overhe
     return values
 
 
-def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_storage, lcoe_wind, lcoe_solar, lcoe_gas, price_kwh_storage,
+def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_storage, wind_price, solar_price, gas_price, price_kwh_storage,
                discount_rate_storage, years_storage, start_date, end_date):
     import os
     import matplotlib  # импорт библиотеки рисования графика
@@ -174,7 +240,7 @@ def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_stor
     # вычисление данных для графика и первого столбца
     
     wind_multiplied, solar_multiplied, gas, charged, discharged, inbattery_list, capacity_storage, values1 = \
-        calculate(0, wind, solar, load, wind_multiplier, solar_multiplier, capacity_storage, lcoe_wind, lcoe_solar, lcoe_gas,
+        calculate(0, wind, solar, load, wind_multiplier, solar_multiplier, capacity_storage, wind_price, solar_price, gas_price,
                   price_kwh_storage, discount_rate_storage, years_storage)
     
     # обрезка массивов для графика
@@ -224,10 +290,9 @@ def draw_renew(scenarios_count, wind_multiplier, solar_multiplier, capacity_stor
     text_x_coordinate = 0.5
     if scenarios_count > 1:
         for i in range(1, scenarios_count):
-            values2 = calculate(i, wind, solar, load, wind_multiplier, solar_multiplier, capacity_storage,
-                                lcoe_wind, lcoe_solar, lcoe_gas, price_kwh_storage, discount_rate_storage, years_storage)
+            values2 = calculate(i, wind, solar, load, wind_multiplier, solar_multiplier, capacity_storage, wind_price, solar_price, gas_price, price_kwh_storage, discount_rate_storage, years_storage)
             plt.figtext(text_x_coordinate, 0.04, values2)
             text_x_coordinate += 0.15
 
     plt.savefig('chart_renew.png')
-    os.system('gwenview chart_renew.png')
+    #os.system('gwenview chart_renew.png')
