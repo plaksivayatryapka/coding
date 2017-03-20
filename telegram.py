@@ -9,7 +9,7 @@ import time
 import telepot
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
 
-token = '233453069:AAH3dL4PJK8CJxdMshGTUuZNdsm2RS8oP4I'  # id бота
+token = ''  # id бота
 TelegramBot = telepot.Bot(token)
 
 
